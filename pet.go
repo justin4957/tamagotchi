@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -25,23 +26,24 @@ func (ls LifeStage) String() string {
 
 // Pet represents the Tamagotchi virtual pet
 type Pet struct {
-	Name           string        `json:"name"`
-	Hunger         int           `json:"hunger"`          // 0-100 (0 = full, 100 = starving)
-	Happiness      int           `json:"happiness"`       // 0-100
-	Health         int           `json:"health"`          // 0-100
-	Cleanliness    int           `json:"cleanliness"`     // 0-100
-	Age            int           `json:"age"`             // in hours
-	Stage          LifeStage     `json:"stage"`
-	IsSick         bool          `json:"is_sick"`
-	BirthTime      time.Time     `json:"birth_time"`
-	LastUpdateTime time.Time     `json:"last_update_time"`
-	SaveFilePath   string        `json:"-"`
+	Name           string       `json:"name"`
+	Hunger         int          `json:"hunger"`      // 0-100 (0 = full, 100 = starving)
+	Happiness      int          `json:"happiness"`   // 0-100
+	Health         int          `json:"health"`      // 0-100
+	Cleanliness    int          `json:"cleanliness"` // 0-100
+	Age            int          `json:"age"`         // in hours
+	Stage          LifeStage    `json:"stage"`
+	IsSick         bool         `json:"is_sick"`
+	BirthTime      time.Time    `json:"birth_time"`
+	LastUpdateTime time.Time    `json:"last_update_time"`
+	SaveFilePath   string       `json:"-"`
+	Absurd         *AbsurdState `json:"absurd,omitempty"` // Hidden existential state
 }
 
 // NewPet creates a new Tamagotchi pet
 func NewPet(name string) *Pet {
 	now := time.Now()
-	return &Pet{
+	pet := &Pet{
 		Name:           name,
 		Hunger:         0,
 		Happiness:      100,
@@ -53,7 +55,15 @@ func NewPet(name string) *Pet {
 		BirthTime:      now,
 		LastUpdateTime: now,
 		SaveFilePath:   "tamagotchi_save.json",
+		Absurd:         NewAbsurdState(),
 	}
+
+	// Check for debug mode activation
+	if strings.ToUpper(name) == "DEBUG" {
+		pet.Absurd.DebugModeActive = true
+	}
+
+	return pet
 }
 
 // Update simulates time passing and updates pet stats
@@ -129,6 +139,13 @@ func (p *Pet) Update() {
 	}
 
 	p.LastUpdateTime = now
+
+	// Update absurd state
+	if p.Absurd != nil {
+		p.Absurd.UpdateMysteryStats()
+		// Check for enlightenment through neglect (the middle path)
+		p.Absurd.CheckForEnlightenmentThroughNeglect(p.Hunger, p.Happiness, p.Cleanliness)
+	}
 }
 
 // updateLifeStage updates the pet's life stage based on age
@@ -374,6 +391,15 @@ func LoadPet(filepath string) (*Pet, error) {
 	}
 
 	pet.SaveFilePath = filepath
+
+	// Initialize absurd state if loading an older save file
+	if pet.Absurd == nil {
+		pet.Absurd = NewAbsurdState()
+		if strings.ToUpper(pet.Name) == "DEBUG" {
+			pet.Absurd.DebugModeActive = true
+		}
+	}
+
 	pet.Update() // Update state based on time passed
 
 	return &pet, nil

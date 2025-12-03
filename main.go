@@ -48,6 +48,12 @@ Commands:
   clean  - Clean up after your pet 🛁
   heal   - Give medicine to your pet 💊
   status - Check your pet's status 📊
+  pet    - Pet your pet 🐾
+  games  - Play useless mini-games 🎲
+  void   - Stare into the void 👁️
+  vibe   - Perform a vibe check ✨
+  fears  - View pet's irrational fears 😰
+  ???    - View mystery stats 🔮
   help   - Show this menu 📖
   quit   - Save and exit 👋
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -62,6 +68,17 @@ func showPetAnimation(pet *Pet) {
        /||\
         /\
    R.I.P. ` + pet.Name + "\n")
+		return
+	}
+
+	// Check if pet is staring into the void
+	if pet.Absurd != nil && pet.Absurd.IsStaringIntoVoid {
+		fmt.Print(`
+     ·   ·
+    (     )
+      ---
+   👁️ *staring into void*
+`)
 		return
 	}
 
@@ -105,6 +122,11 @@ func showPetAnimation(pet *Pet) {
 `)
 	}
 
+	// Show enlightenment indicator
+	if pet.Absurd != nil && pet.Absurd.HasAchievedClarity {
+		fmt.Println("    🧘 *enlightened*")
+	}
+
 	// Show status indicators
 	if pet.IsSick {
 		fmt.Println("    🤒 *sick*")
@@ -114,6 +136,12 @@ func showPetAnimation(pet *Pet) {
 		fmt.Println("    💩 *dirty*")
 	} else if pet.Happiness > 80 {
 		fmt.Println("    😄 *happy*")
+	}
+
+	// Random philosophical thought (15% chance)
+	if pet.Absurd != nil && pet.Absurd.ShouldShowThought() {
+		thought := pet.Absurd.GetRandomThought(pet.Name)
+		fmt.Printf("\n    💭 \"%s\"\n", thought)
 	}
 }
 
@@ -184,6 +212,59 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 		case "help", "?":
 			continue // Menu is already displayed
 
+		case "pet", "pat":
+			pet.Update()
+			if pet.Absurd != nil {
+				message = pet.Absurd.PetThePet()
+			} else {
+				message = "You pet your pet. It seems pleased."
+			}
+
+		case "games", "game", "minigames", "mini":
+			pet.Update()
+			result := SelectAndPlayMiniGame(reader)
+			if result != nil {
+				message = result.Message
+			}
+
+		case "void", "stare":
+			pet.Update()
+			if pet.Absurd != nil {
+				message = pet.Absurd.StartsIntoVoid()
+				pet.Absurd.StopStaringIntoVoid()
+			} else {
+				message = "You stare into the void. It's just darkness."
+			}
+
+		case "vibe", "vibecheck":
+			pet.Update()
+			if pet.Absurd != nil {
+				passed, vibeMessage := pet.Absurd.PerformVibeCheck()
+				if passed {
+					message = "✅ " + vibeMessage
+				} else {
+					message = "❌ " + vibeMessage
+				}
+			} else {
+				message = "Vibe check: inconclusive."
+			}
+
+		case "fears", "fear":
+			pet.Update()
+			if pet.Absurd != nil {
+				message = pet.Absurd.GetFearDisplay()
+			} else {
+				message = "Your pet fears nothing. This is suspicious."
+			}
+
+		case "???", "mystery", "mystats":
+			pet.Update()
+			if pet.Absurd != nil {
+				message = pet.Absurd.GetMysteryStatsDisplay()
+			} else {
+				message = "No mystery stats available. This is also mysterious."
+			}
+
 		case "quit", "q", "exit":
 			fmt.Println("\n💾 Saving your pet...")
 			pet.Update()
@@ -196,7 +277,23 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 			return
 
 		default:
-			message = "❓ Unknown command. Type 'help' to see available commands."
+			// Check for Konami code progress
+			if pet.Absurd != nil {
+				activated, konamiMessage := pet.Absurd.ProcessKonamiInput(command)
+				if activated {
+					message = konamiMessage
+				} else {
+					// Check for fear triggers
+					fear := pet.Absurd.CheckFearTrigger(command)
+					if fear != nil {
+						message = fmt.Sprintf("😱 Your pet trembles! It has %s: %s", fear.Name, fear.Description)
+					} else {
+						message = "❓ Unknown command. Type 'help' to see available commands."
+					}
+				}
+			} else {
+				message = "❓ Unknown command. Type 'help' to see available commands."
+			}
 		}
 
 		if message != "" {
