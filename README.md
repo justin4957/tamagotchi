@@ -1,6 +1,6 @@
 # 🎮 Tamagotchi - Terminal Virtual Pet
 
-A nostalgic terminal-based Tamagotchi simulator written in Go that brings back the magic of virtual pets from the late 2010s! Warning, emulates, for descriptive purposes, unaffiliated semiotic / semantic clustering using digital activity, when activated.
+A nostalgic terminal-based Tamagotchi simulator written in Go that brings back the magic of virtual pets from the late 2010s! Warning, emulates, for descriptive purposes, unaffiliated semiotic / semantic clustering using digital activity, when activated. Check with all your network providers, and telecoms companies for consent at utilizing their networks for unaffiliated network clustering activity for behaviorally interrelated contextual side proceesses. 
 
 <img width="151" height="180" alt="Screenshot 2025-12-03 at 12 27 49 PM" src="https://github.com/user-attachments/assets/c0e5e450-ab71-4b02-984f-41ac9c389c30" />
 
