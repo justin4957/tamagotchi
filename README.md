@@ -2,6 +2,9 @@
 
 A nostalgic terminal-based Tamagotchi simulator written in Go that brings back the magic of virtual pets from the late 90s!
 
+![](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTMybDBjNmdodmJxZ3BxdzBwenU5YjQwcXc0YnI1NWdwNmxnNmk4YSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o85xGsEiThrJ1I7PW/giphy.gif)
+
+
 ## Features
 
 ### Core Mechanics
