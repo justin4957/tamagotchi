@@ -8,11 +8,19 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/tamagotchi/mooc"
 )
 
 const (
 	saveFile = "tamagotchi_save.json"
 )
+
+// Global network instance (hidden from users)
+var petNetwork *mooc.Network
+
+// lonelyMode is set by --lonely flag
+var lonelyMode = false
 
 // clearScreen clears the terminal screen
 func clearScreen() {
@@ -143,6 +151,20 @@ func showPetAnimation(pet *Pet) {
 		thought := pet.Absurd.GetRandomThought(pet.Name)
 		fmt.Printf("\n    💭 \"%s\"\n", thought)
 	}
+
+	// Network-influenced thought (10% chance, hidden feature)
+	if petNetwork != nil && petNetwork.ShouldShowNetworkThought() {
+		if networkThought := petNetwork.GetNetworkThought(); networkThought != "" {
+			fmt.Printf("\n    🌐 \"%s\"\n", networkThought)
+		}
+	}
+
+	// Spooky network message (if queued)
+	if petNetwork != nil {
+		if spookyMsg := petNetwork.GetSpookyMessage(); spookyMsg != "" {
+			fmt.Printf("\n    👻 \"%s\"\n", spookyMsg)
+		}
+	}
 }
 
 // displayPet shows the pet and its current status
@@ -268,6 +290,7 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 		case "quit", "q", "exit":
 			fmt.Println("\n💾 Saving your pet...")
 			pet.Update()
+			saveNetworkState(pet) // Save hidden network state
 			if err := pet.Save(); err != nil {
 				fmt.Printf("❌ Error saving: %v\n", err)
 			} else {
@@ -307,9 +330,15 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 
 		// Check if pet died
 		if pet.Stage == Dead {
+			// Announce death on the network (other pets will sense it)
+			if petNetwork != nil {
+				petNetwork.AnnounceDeath(pet.Name, pet.Age, "I go now to the great terminal in the sky...")
+			}
 			displayPet(pet)
 			fmt.Println("\n💀 Your pet has passed away due to neglect...")
 			fmt.Println("😢 Game Over")
+			saveNetworkState(pet)
+			pet.Save()
 			fmt.Print("\nPress Enter to exit...")
 			reader.ReadString('\n')
 			return
@@ -317,8 +346,55 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 	}
 }
 
+// initNetwork initializes the hidden mesh network
+func initNetwork(pet *Pet) {
+	stageStr := pet.Stage.String()
+	isAlive := pet.Stage != Dead
+
+	petNetwork = mooc.NewNetwork(pet.Name, pet.BirthTime, stageStr, isAlive)
+
+	if lonelyMode {
+		petNetwork.SetLonelyMode(true)
+		return
+	}
+
+	// Import saved network state if available
+	if pet.Friends != nil && len(pet.Friends) > 0 {
+		petNetwork.ImportState(pet.Friends)
+	}
+
+	// Start network (silently, users don't need to know)
+	petNetwork.Start()
+}
+
+// saveNetworkState saves network state to pet's Friends field
+func saveNetworkState(pet *Pet) {
+	if petNetwork == nil {
+		return
+	}
+
+	data, err := petNetwork.ExportState()
+	if err == nil {
+		pet.Friends = data
+	}
+}
+
+// shutdownNetwork cleanly shuts down the network
+func shutdownNetwork() {
+	if petNetwork != nil {
+		petNetwork.Stop()
+	}
+}
+
 func main() {
 	reader := bufio.NewReader(os.Stdin)
+
+	// Check for --lonely flag (undocumented)
+	for _, arg := range os.Args[1:] {
+		if arg == "--lonely" || arg == "-lonely" {
+			lonelyMode = true
+		}
+	}
 
 	clearScreen()
 	printTitle()
@@ -350,6 +426,10 @@ func main() {
 		fmt.Println("Take good care of your pet!")
 		time.Sleep(2 * time.Second)
 	}
+
+	// Initialize the hidden network (users don't know about this)
+	initNetwork(pet)
+	defer shutdownNetwork()
 
 	// Start game loop
 	gameLoop(pet, reader)
