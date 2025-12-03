@@ -26,18 +26,19 @@ func (ls LifeStage) String() string {
 
 // Pet represents the Tamagotchi virtual pet
 type Pet struct {
-	Name           string       `json:"name"`
-	Hunger         int          `json:"hunger"`      // 0-100 (0 = full, 100 = starving)
-	Happiness      int          `json:"happiness"`   // 0-100
-	Health         int          `json:"health"`      // 0-100
-	Cleanliness    int          `json:"cleanliness"` // 0-100
-	Age            int          `json:"age"`         // in hours
-	Stage          LifeStage    `json:"stage"`
-	IsSick         bool         `json:"is_sick"`
-	BirthTime      time.Time    `json:"birth_time"`
-	LastUpdateTime time.Time    `json:"last_update_time"`
-	SaveFilePath   string       `json:"-"`
-	Absurd         *AbsurdState `json:"absurd,omitempty"` // Hidden existential state
+	Name           string          `json:"name"`
+	Hunger         int             `json:"hunger"`      // 0-100 (0 = full, 100 = starving)
+	Happiness      int             `json:"happiness"`   // 0-100
+	Health         int             `json:"health"`      // 0-100
+	Cleanliness    int             `json:"cleanliness"` // 0-100
+	Age            int             `json:"age"`         // in hours
+	Stage          LifeStage       `json:"stage"`
+	IsSick         bool            `json:"is_sick"`
+	BirthTime      time.Time       `json:"birth_time"`
+	LastUpdateTime time.Time       `json:"last_update_time"`
+	SaveFilePath   string          `json:"-"`
+	Absurd         *AbsurdState    `json:"absurd,omitempty"`  // Hidden existential state
+	Friends        json.RawMessage `json:"friends,omitempty"` // Network friends (users will wonder)
 }
 
 // NewPet creates a new Tamagotchi pet
