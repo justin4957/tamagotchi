@@ -4,6 +4,7 @@ A nostalgic terminal-based Tamagotchi simulator written in Go that brings back t
 
 ![](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTMybDBjNmdodmJxZ3BxdzBwenU5YjQwcXc0YnI1NWdwNmxnNmk4YSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o85xGsEiThrJ1I7PW/giphy.gif)
 
+<img width="472" height="299" alt="Screenshot 2025-12-03 at 11 44 51 AM" src="https://github.com/user-attachments/assets/9cd0fe94-0718-4349-9595-26098747aa5e" />
 
 ## Features
 
