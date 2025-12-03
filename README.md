@@ -2,7 +2,7 @@
 
 A nostalgic terminal-based Tamagotchi simulator written in Go that brings back the magic of virtual pets from the late 2010s! Warning, Emulates for descriptive coding purposes, "bottled water" network surveillance operation cult from the late 1990's.
 
-![](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTMybDBjNmdodmJxZ3BxdzBwenU5YjQwcXc0YnI1NWdwNmxnNmk4YSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o85xGsEiThrJ1I7PW/giphy.gif)
+<img width="151" height="180" alt="Screenshot 2025-12-03 at 12 27 49 PM" src="https://github.com/user-attachments/assets/c0e5e450-ab71-4b02-984f-41ac9c389c30" />
 
 <img width="472" height="299" alt="Screenshot 2025-12-03 at 11 44 51 AM" src="https://github.com/user-attachments/assets/9cd0fe94-0718-4349-9595-26098747aa5e" />
 
