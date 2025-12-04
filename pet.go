@@ -39,6 +39,7 @@ type Pet struct {
 	SaveFilePath   string          `json:"-"`
 	Absurd         *AbsurdState    `json:"absurd,omitempty"`  // Hidden existential state
 	Friends        json.RawMessage `json:"friends,omitempty"` // Network friends (users will wonder)
+	Endgame        *EndgameState   `json:"endgame,omitempty"` // Absurd endgame progression
 }
 
 // NewPet creates a new Tamagotchi pet
@@ -57,6 +58,7 @@ func NewPet(name string) *Pet {
 		LastUpdateTime: now,
 		SaveFilePath:   "tamagotchi_save.json",
 		Absurd:         NewAbsurdState(),
+		Endgame:        NewEndgameState(),
 	}
 
 	// Check for debug mode activation
@@ -400,6 +402,12 @@ func LoadPet(filepath string) (*Pet, error) {
 			pet.Absurd.DebugModeActive = true
 		}
 	}
+
+	// Initialize endgame state if loading an older save file
+	if pet.Endgame == nil {
+		pet.Endgame = NewEndgameState()
+	}
+	pet.Endgame.SessionStart = time.Now() // Reset session start on load
 
 	pet.Update() // Update state based on time passed
 

@@ -62,8 +62,32 @@ Commands:
   vibe   - Perform a vibe check ✨
   fears  - View pet's irrational fears 😰
   ???    - View mystery stats 🔮
+  more   - More commands... 📜
   help   - Show this menu 📖
   quit   - Save and exit 👋
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`)
+}
+
+// printMoreMenu displays the extended endgame commands
+func printMoreMenu() {
+	fmt.Print(`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Endgame Commands:
+  guild      - Join a guild 🏰
+  quest      - Get a new quest 📜
+  gacha      - Pull from gacha 🎰
+  battle     - Pet battle ⚔️
+  trade      - Trade items 🔄
+  achievements - View achievements 🏆
+  leaderboard  - View leaderboard 🏅
+  countdown  - The mysterious countdown ⏰
+  clue       - Get an ARG clue 🔮
+  meta       - Meta statistics 📊
+  share      - Share pet status 📤
+  premium    - Premium content 💎
+  ad         - Watch an ad 📺
+  friendcode - Your friend code 🔑
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `)
 }
@@ -200,7 +224,26 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 		}
 	}()
 
+	// Check for daily login bonus
+	if pet.Endgame != nil {
+		if got, bonusMsg := pet.Endgame.CheckDailyBonus(); got {
+			fmt.Println(bonusMsg)
+			fmt.Print("Press Enter to continue...")
+			reader.ReadString('\n')
+		}
+	}
+
 	for {
+		// Check for "touch grass" reminder
+		if pet.Endgame != nil {
+			if shouldRemind, reminder := pet.Endgame.CheckTouchGrass(); shouldRemind {
+				fmt.Println(reminder)
+				pet.Endgame.UnlockAchievement("touch_grass")
+				fmt.Print("Press Enter to continue...")
+				reader.ReadString('\n')
+			}
+		}
+
 		displayPet(pet)
 		printMenu()
 
@@ -208,12 +251,20 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 		command, _ := reader.ReadString('\n')
 		command = strings.TrimSpace(strings.ToLower(command))
 
+		// Track command for meta stats
+		if pet.Endgame != nil {
+			pet.Endgame.IncrementCommand()
+		}
+
 		var message string
 
 		switch command {
 		case "feed", "f":
 			pet.Update()
 			message = pet.Feed()
+			if pet.Endgame != nil {
+				pet.Endgame.UnlockAchievement("first_feed")
+			}
 
 		case "play", "p":
 			pet.Update()
@@ -254,6 +305,12 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 			if pet.Absurd != nil {
 				message = pet.Absurd.StartsIntoVoid()
 				pet.Absurd.StopStaringIntoVoid()
+				if pet.Endgame != nil {
+					pet.Endgame.UnlockAchievement("void_gaze")
+					if pet.Absurd.HasAchievedClarity {
+						pet.Endgame.UnlockAchievement("enlightened")
+					}
+				}
 			} else {
 				message = "You stare into the void. It's just darkness."
 			}
@@ -287,10 +344,123 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 				message = "No mystery stats available. This is also mysterious."
 			}
 
+		case "more", "endgame":
+			printMoreMenu()
+			continue
+
+		case "guild":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = pet.Endgame.JoinGuild()
+				pet.Endgame.UnlockAchievement("guild_join")
+			}
+
+		case "quest", "quests":
+			pet.Update()
+			if pet.Endgame != nil {
+				// Check for quest completion first
+				if completion := pet.Endgame.UpdateQuest(); completion != "" {
+					message = completion
+					pet.Endgame.UnlockAchievement("quest_complete")
+				} else {
+					message = pet.Endgame.GenerateQuest()
+				}
+			}
+
+		case "gacha", "pull":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = pet.Endgame.PullGacha()
+			}
+
+		case "battle", "fight":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = pet.Endgame.StartBattle()
+			}
+
+		case "trade":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = pet.Endgame.AttemptTrade()
+			}
+
+		case "achievements", "achieve", "ach":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = pet.Endgame.ShowAchievements()
+			}
+
+		case "leaderboard", "lb", "rankings":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = pet.Endgame.ShowLeaderboard()
+			}
+
+		case "countdown", "timer":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = pet.Endgame.GetCountdownStatus()
+			}
+
+		case "clue", "arg":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = pet.Endgame.GetARGClue()
+			}
+
+		case "meta", "metastats", "wasted":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = pet.Endgame.GetMetaStats()
+			}
+
+		case "share":
+			pet.Update()
+			if pet.Endgame != nil {
+				pet.Endgame.ShareCount++
+				shareText := pet.Endgame.GenerateShareText(pet.Name, pet.Stage.String())
+				message = "📤 Share text copied to... nowhere. Here it is:\n" + shareText
+			}
+
+		case "premium", "pro", "vip":
+			pet.Update()
+			message = ShowPremiumOffer()
+
+		case "ad", "ads", "watch":
+			pet.Update()
+			message = ShowFakeAd()
+			fmt.Println(message)
+			fmt.Println("\n⏳ Loading ad...")
+			time.Sleep(5 * time.Second) // Fake ad delay
+			fmt.Println("✅ Ad complete! Reward: A sense of time passing.")
+			message = ""
+
+		case "friendcode", "code", "fc":
+			pet.Update()
+			if pet.Endgame != nil {
+				message = fmt.Sprintf(`
+╔════════════════════════════════════╗
+║      🔑 YOUR FRIEND CODE 🔑       ║
+╠════════════════════════════════════╣
+║                                    ║
+║ %s
+║                                    ║
+║ Share this with friends!           ║
+║ (It doesn't do anything)           ║
+║                                    ║
+╚════════════════════════════════════╝
+`, pet.Endgame.FriendCode)
+			}
+
 		case "quit", "q", "exit":
 			fmt.Println("\n💾 Saving your pet...")
 			pet.Update()
 			saveNetworkState(pet) // Save hidden network state
+			// Update play time before saving
+			if pet.Endgame != nil {
+				pet.Endgame.UpdatePlayTime()
+			}
 			if err := pet.Save(); err != nil {
 				fmt.Printf("❌ Error saving: %v\n", err)
 			} else {
