@@ -63,6 +63,7 @@ Commands:
   fears  - View pet's irrational fears 😰
   ???    - View mystery stats 🔮
   more   - More commands... 📜
+  reset  - Clear history and hatch anew ♻️
   help   - Show this menu 📖
   quit   - Save and exit 👋
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -452,6 +453,33 @@ func gameLoop(pet *Pet, reader *bufio.Reader, ui *uiConfig) {
 ╚════════════════════════════════════╝
 `, pet.Endgame.FriendCode)
 			}
+
+		case "reset", "restart", "new":
+			fmt.Print("\nThis will erase your pet history and start over. Type YES to confirm: ")
+			confirm, _ := reader.ReadString('\n')
+			confirm = strings.TrimSpace(strings.ToUpper(confirm))
+			if confirm != "YES" {
+				message = "Reset cancelled. Your pet breathes a sigh of relief."
+				break
+			}
+
+			fmt.Print("Name your new pet: ")
+			newName, _ := reader.ReadString('\n')
+			newName = strings.TrimSpace(newName)
+			if newName == "" {
+				newName = "Tamago"
+			}
+
+			// Restart network and pet state in-place to keep autosave goroutine valid
+			shutdownNetwork()
+			pet.Reset(newName)
+			initNetwork(pet)
+			_ = os.Remove(saveFile) // clear any lingering history; save will rewrite
+			if err := pet.Save(); err != nil {
+				message = fmt.Sprintf("❌ Failed to start fresh: %v", err)
+				break
+			}
+			message = fmt.Sprintf("♻️ History cleared. Say hi to your new pet: %s", newName)
 
 		case "quit", "q", "exit":
 			fmt.Println("\n💾 Saving your pet...")

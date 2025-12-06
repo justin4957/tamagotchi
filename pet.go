@@ -45,29 +45,34 @@ type Pet struct {
 
 // NewPet creates a new Tamagotchi pet
 func NewPet(name string) *Pet {
-	now := time.Now()
 	pet := &Pet{
-		Name:           name,
-		Hunger:         0,
-		Happiness:      100,
-		Health:         100,
-		Cleanliness:    100,
-		Age:            0,
-		Stage:          Egg,
-		IsSick:         false,
-		BirthTime:      now,
-		LastUpdateTime: now,
-		SaveFilePath:   "tamagotchi_save.json",
-		Absurd:         NewAbsurdState(),
-		Endgame:        NewEndgameState(),
+		SaveFilePath: "tamagotchi_save.json",
 	}
-
-	// Check for debug mode activation
-	if strings.ToUpper(name) == "DEBUG" {
-		pet.Absurd.DebugModeActive = true
-	}
-
+	pet.Reset(name)
 	return pet
+}
+
+// Reset clears the pet history and reinitializes state in-place.
+func (p *Pet) Reset(name string) {
+	now := time.Now()
+	p.Name = name
+	p.Hunger = 0
+	p.Happiness = 100
+	p.Health = 100
+	p.Cleanliness = 100
+	p.Age = 0
+	p.Stage = Egg
+	p.IsSick = false
+	p.HasShownTheLook = false
+	p.BirthTime = now
+	p.LastUpdateTime = now
+	p.Absurd = NewAbsurdState()
+	if strings.ToUpper(name) == "DEBUG" {
+		p.Absurd.DebugModeActive = true
+	}
+	p.Friends = nil
+	p.Endgame = NewEndgameState()
+	p.Endgame.SessionStart = now
 }
 
 // Update simulates time passing and updates pet stats
