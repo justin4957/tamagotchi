@@ -26,47 +26,53 @@ func (ls LifeStage) String() string {
 
 // Pet represents the Tamagotchi virtual pet
 type Pet struct {
-	Name           string          `json:"name"`
-	Hunger         int             `json:"hunger"`      // 0-100 (0 = full, 100 = starving)
-	Happiness      int             `json:"happiness"`   // 0-100
-	Health         int             `json:"health"`      // 0-100
-	Cleanliness    int             `json:"cleanliness"` // 0-100
-	Age            int             `json:"age"`         // in hours
-	Stage          LifeStage       `json:"stage"`
-	IsSick         bool            `json:"is_sick"`
-	BirthTime      time.Time       `json:"birth_time"`
-	LastUpdateTime time.Time       `json:"last_update_time"`
-	SaveFilePath   string          `json:"-"`
-	Absurd         *AbsurdState    `json:"absurd,omitempty"`  // Hidden existential state
-	Friends        json.RawMessage `json:"friends,omitempty"` // Network friends (users will wonder)
-	Endgame        *EndgameState   `json:"endgame,omitempty"` // Absurd endgame progression
+	Name            string          `json:"name"`
+	Hunger          int             `json:"hunger"`      // 0-100 (0 = full, 100 = starving)
+	Happiness       int             `json:"happiness"`   // 0-100
+	Health          int             `json:"health"`      // 0-100
+	Cleanliness     int             `json:"cleanliness"` // 0-100
+	Age             int             `json:"age"`         // in hours
+	Stage           LifeStage       `json:"stage"`
+	IsSick          bool            `json:"is_sick"`
+	HasShownTheLook bool            `json:"has_shown_the_look,omitempty"` // Rare once-in-lifetime stare
+	BirthTime       time.Time       `json:"birth_time"`
+	LastUpdateTime  time.Time       `json:"last_update_time"`
+	SaveFilePath    string          `json:"-"`
+	Absurd          *AbsurdState    `json:"absurd,omitempty"`  // Hidden existential state
+	Friends         json.RawMessage `json:"friends,omitempty"` // Network friends (users will wonder)
+	Endgame         *EndgameState   `json:"endgame,omitempty"` // Absurd endgame progression
 }
 
 // NewPet creates a new Tamagotchi pet
 func NewPet(name string) *Pet {
-	now := time.Now()
 	pet := &Pet{
-		Name:           name,
-		Hunger:         0,
-		Happiness:      100,
-		Health:         100,
-		Cleanliness:    100,
-		Age:            0,
-		Stage:          Egg,
-		IsSick:         false,
-		BirthTime:      now,
-		LastUpdateTime: now,
-		SaveFilePath:   "tamagotchi_save.json",
-		Absurd:         NewAbsurdState(),
-		Endgame:        NewEndgameState(),
+		SaveFilePath: "tamagotchi_save.json",
 	}
-
-	// Check for debug mode activation
-	if strings.ToUpper(name) == "DEBUG" {
-		pet.Absurd.DebugModeActive = true
-	}
-
+	pet.Reset(name)
 	return pet
+}
+
+// Reset clears the pet history and reinitializes state in-place.
+func (p *Pet) Reset(name string) {
+	now := time.Now()
+	p.Name = name
+	p.Hunger = 0
+	p.Happiness = 100
+	p.Health = 100
+	p.Cleanliness = 100
+	p.Age = 0
+	p.Stage = Egg
+	p.IsSick = false
+	p.HasShownTheLook = false
+	p.BirthTime = now
+	p.LastUpdateTime = now
+	p.Absurd = NewAbsurdState()
+	if strings.ToUpper(name) == "DEBUG" {
+		p.Absurd.DebugModeActive = true
+	}
+	p.Friends = nil
+	p.Endgame = NewEndgameState()
+	p.Endgame.SessionStart = now
 }
 
 // Update simulates time passing and updates pet stats

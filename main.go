@@ -63,6 +63,7 @@ Commands:
   fears  - View pet's irrational fears 😰
   ???    - View mystery stats 🔮
   more   - More commands... 📜
+  reset  - Clear history and hatch anew ♻️
   help   - Show this menu 📖
   quit   - Save and exit 👋
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -192,11 +193,10 @@ func showPetAnimation(pet *Pet) {
 }
 
 // displayPet shows the pet and its current status
-func displayPet(pet *Pet) {
+func displayPet(pet *Pet, ui *uiConfig) {
 	clearScreen()
-	printTitle()
-	showPetAnimation(pet)
-	fmt.Println(pet.GetStatus())
+	maybeShake(pet, ui)
+	fmt.Print(renderScene(pet, ui))
 }
 
 // promptForName asks the user to name their new pet
@@ -211,7 +211,7 @@ func promptForName(reader *bufio.Reader) string {
 }
 
 // gameLoop runs the main game loop
-func gameLoop(pet *Pet, reader *bufio.Reader) {
+func gameLoop(pet *Pet, reader *bufio.Reader, ui *uiConfig) {
 	// Auto-save ticker
 	autoSaveTicker := time.NewTicker(30 * time.Second)
 	defer autoSaveTicker.Stop()
@@ -244,7 +244,8 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 			}
 		}
 
-		displayPet(pet)
+		pet.Update()
+		displayPet(pet, ui)
 		printMenu()
 
 		fmt.Print("Enter command: ")
@@ -453,6 +454,33 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 `, pet.Endgame.FriendCode)
 			}
 
+		case "reset", "restart", "new":
+			fmt.Print("\nThis will erase your pet history and start over. Type YES to confirm: ")
+			confirm, _ := reader.ReadString('\n')
+			confirm = strings.TrimSpace(strings.ToUpper(confirm))
+			if confirm != "YES" {
+				message = "Reset cancelled. Your pet breathes a sigh of relief."
+				break
+			}
+
+			fmt.Print("Name your new pet: ")
+			newName, _ := reader.ReadString('\n')
+			newName = strings.TrimSpace(newName)
+			if newName == "" {
+				newName = "Tamago"
+			}
+
+			// Restart network and pet state in-place to keep autosave goroutine valid
+			shutdownNetwork()
+			pet.Reset(newName)
+			initNetwork(pet)
+			_ = os.Remove(saveFile) // clear any lingering history; save will rewrite
+			if err := pet.Save(); err != nil {
+				message = fmt.Sprintf("❌ Failed to start fresh: %v", err)
+				break
+			}
+			message = fmt.Sprintf("♻️ History cleared. Say hi to your new pet: %s", newName)
+
 		case "quit", "q", "exit":
 			fmt.Println("\n💾 Saving your pet...")
 			pet.Update()
@@ -490,7 +518,8 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 		}
 
 		if message != "" {
-			fmt.Printf("\n%s\n", message)
+			fmt.Println()
+			typewriterPrint(message, ui)
 			fmt.Print("\nPress Enter to continue...")
 			reader.ReadString('\n')
 		}
@@ -504,7 +533,7 @@ func gameLoop(pet *Pet, reader *bufio.Reader) {
 			if petNetwork != nil {
 				petNetwork.AnnounceDeath(pet.Name, pet.Age, "I go now to the great terminal in the sky...")
 			}
-			displayPet(pet)
+			displayPet(pet, ui)
 			fmt.Println("\n💀 Your pet has passed away due to neglect...")
 			fmt.Println("😢 Game Over")
 			saveNetworkState(pet)
@@ -558,6 +587,7 @@ func shutdownNetwork() {
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
+	ui := newUIConfig()
 
 	// Check for --lonely flag (undocumented)
 	for _, arg := range os.Args[1:] {
@@ -602,5 +632,5 @@ func main() {
 	defer shutdownNetwork()
 
 	// Start game loop
-	gameLoop(pet, reader)
+	gameLoop(pet, reader, ui)
 }
