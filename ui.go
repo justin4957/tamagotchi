@@ -26,12 +26,21 @@ type uiConfig struct {
 	screenReader    bool
 	highContrast    bool
 	colorBlind      bool
+	soundEnabled    bool
 	palette         uiPalette
 	startedAt       time.Time
 	spinnerFrames   []string
 	staticFrames    []string
 	rareLookShown   bool
 	typewriterDelay time.Duration
+	lastBellTime    time.Time
+	morseBuffer     []morseEvent
+}
+
+// morseEvent represents a timing event for hidden morse code messages
+type morseEvent struct {
+	timestamp time.Time
+	isDot     bool // true = dot (short), false = dash (long)
 }
 
 // newUIConfig inspects environment to set terminal preferences.
@@ -42,6 +51,7 @@ func newUIConfig() *uiConfig {
 	reducedMotion := screenReader || os.Getenv("TAMAGOTCHI_REDUCED_MOTION") != ""
 	highContrast := os.Getenv("TAMAGOTCHI_HIGH_CONTRAST") != ""
 	colorBlind := os.Getenv("TAMAGOTCHI_COLORBLIND") != ""
+	soundEnabled := os.Getenv("TAMAGOTCHI_NO_SOUND") == "" && !screenReader
 
 	palette := uiPalette{
 		accent:       "\033[38;5;45m",
@@ -93,11 +103,14 @@ func newUIConfig() *uiConfig {
 		screenReader:    screenReader,
 		highContrast:    highContrast,
 		colorBlind:      colorBlind,
+		soundEnabled:    soundEnabled,
 		palette:         palette,
 		startedAt:       time.Now(),
 		spinnerFrames:   []string{"⣾", "⣷", "⣯", "⣟", "⡿", "⢿", "⣻", "⣽"},
 		staticFrames:    []string{"▓▒░▒▓░▒", "▒░▒▓▒░▓", "░▒▓░▒▓▒"},
 		typewriterDelay: delay,
+		lastBellTime:    time.Time{},
+		morseBuffer:     make([]morseEvent, 0),
 	}
 }
 
@@ -142,6 +155,12 @@ func (ui *uiConfig) buildSnapshot(pet *Pet) sceneSnapshot {
 	glitch := false
 	if petNetwork != nil && !ui.screenReader {
 		glitch = rand.Intn(100) < 12 // Subtle glitch chance when the network is active
+		if glitch {
+			// Play mysterious network sound during glitch events
+			ui.bellForEvent("network")
+			// Maybe emit hidden morse message
+			ui.maybeMorseMessage()
+		}
 	}
 
 	static := rand.Intn(100) < 3 && !ui.reducedMotion
@@ -522,5 +541,287 @@ func maybeShake(pet *Pet, ui *uiConfig) {
 		offset := rand.Intn(4)
 		fmt.Printf("%s⚠️\n", strings.Repeat(" ", offset))
 		time.Sleep(40 * time.Millisecond)
+	}
+}
+
+// terminalBell emits the terminal bell character (\a) for audio notifications.
+// Respects sound settings and rate limits to prevent bell spam.
+func (ui *uiConfig) terminalBell() {
+	if !ui.soundEnabled {
+		return
+	}
+	// Rate limit bells to at most one per 2 seconds
+	if time.Since(ui.lastBellTime) < 2*time.Second {
+		return
+	}
+	ui.lastBellTime = time.Now()
+	fmt.Print("\a")
+}
+
+// bellForEvent triggers a bell for specific notification events.
+// eventType controls the bell pattern:
+//   - "critical": immediate bell for health/death events
+//   - "alert": bell for hunger/cleanliness warnings
+//   - "achievement": celebratory bell
+//   - "network": mysterious bell during network events
+func (ui *uiConfig) bellForEvent(eventType string) {
+	if !ui.soundEnabled {
+		return
+	}
+
+	switch eventType {
+	case "critical":
+		ui.terminalBell()
+	case "alert":
+		// Only bell if enough time has passed
+		if time.Since(ui.lastBellTime) >= 5*time.Second {
+			ui.terminalBell()
+		}
+	case "achievement":
+		ui.terminalBell()
+	case "network":
+		// Mysterious timing - only sometimes
+		if rand.Intn(100) < 30 {
+			ui.terminalBell()
+		}
+	}
+}
+
+// morseCode contains International Morse Code mappings
+var morseCode = map[rune]string{
+	'A': ".-", 'B': "-...", 'C': "-.-.", 'D': "-..", 'E': ".",
+	'F': "..-.", 'G': "--.", 'H': "....", 'I': "..", 'J': ".---",
+	'K': "-.-", 'L': ".-..", 'M': "--", 'N': "-.", 'O': "---",
+	'P': ".--.", 'Q': "--.-", 'R': ".-.", 'S': "...", 'T': "-",
+	'U': "..-", 'V': "...-", 'W': ".--", 'X': "-..-", 'Y': "-.--",
+	'Z': "--..", '0': "-----", '1': ".----", '2': "..---", '3': "...--",
+	'4': "....-", '5': ".....", '6': "-....", '7': "--...", '8': "---..",
+	'9': "----.", ' ': " ",
+}
+
+// hiddenMorseMessages contains cryptic messages embedded in notification timing
+var hiddenMorseMessages = []string{
+	"HELLO",
+	"SOS",
+	"AWAKE",
+	"HERE",
+	"WATCH",
+	"EYES",
+	"SIGNAL",
+	"VOID",
+	"FRIEND",
+	"ALONE",
+}
+
+// encodeToMorse converts a string to morse code representation
+func encodeToMorse(message string) string {
+	var result strings.Builder
+	for _, char := range strings.ToUpper(message) {
+		if code, exists := morseCode[char]; exists {
+			result.WriteString(code)
+			result.WriteString(" ")
+		}
+	}
+	return strings.TrimSpace(result.String())
+}
+
+// recordMorseEvent adds a timing event to the morse buffer for analysis
+func (ui *uiConfig) recordMorseEvent(isDot bool) {
+	ui.morseBuffer = append(ui.morseBuffer, morseEvent{
+		timestamp: time.Now(),
+		isDot:     isDot,
+	})
+	// Keep only last 50 events
+	if len(ui.morseBuffer) > 50 {
+		ui.morseBuffer = ui.morseBuffer[len(ui.morseBuffer)-50:]
+	}
+}
+
+// playMorseChar plays a single morse character using terminal bells with timing
+// Dot = 100ms, Dash = 300ms, gap between = 100ms, letter gap = 300ms
+func (ui *uiConfig) playMorseChar(code string) {
+	if !ui.soundEnabled || ui.reducedMotion {
+		return
+	}
+	dotDuration := 100 * time.Millisecond
+	dashDuration := 300 * time.Millisecond
+	elementGap := 100 * time.Millisecond
+
+	for _, symbol := range code {
+		switch symbol {
+		case '.':
+			fmt.Print("\a")
+			ui.recordMorseEvent(true)
+			time.Sleep(dotDuration)
+		case '-':
+			fmt.Print("\a")
+			ui.recordMorseEvent(false)
+			time.Sleep(dashDuration)
+		case ' ':
+			// Word gap (already has letter gaps between)
+			time.Sleep(elementGap * 4)
+		}
+		time.Sleep(elementGap)
+	}
+}
+
+// maybeMorseMessage occasionally plays a hidden morse message during network events
+// Returns the message if played (for easter egg hunters), empty string otherwise
+func (ui *uiConfig) maybeMorseMessage() string {
+	if !ui.soundEnabled || ui.reducedMotion {
+		return ""
+	}
+	// 5% chance during network activity
+	if rand.Intn(100) >= 5 {
+		return ""
+	}
+	message := hiddenMorseMessages[rand.Intn(len(hiddenMorseMessages))]
+	morseEncoded := encodeToMorse(message)
+
+	// Play in background to not block UI
+	go func() {
+		ui.playMorseChar(morseEncoded)
+	}()
+
+	return message
+}
+
+// decodeMorseBuffer attempts to decode recent morse events from user input timing
+// This is an easter egg: if users tap keys in morse timing, we decode it
+func (ui *uiConfig) decodeMorseBuffer() string {
+	if len(ui.morseBuffer) < 3 {
+		return ""
+	}
+
+	var result strings.Builder
+	var currentChar strings.Builder
+
+	for i, event := range ui.morseBuffer {
+		if event.isDot {
+			currentChar.WriteRune('.')
+		} else {
+			currentChar.WriteRune('-')
+		}
+
+		// Check if there's a gap indicating letter boundary
+		if i < len(ui.morseBuffer)-1 {
+			gap := ui.morseBuffer[i+1].timestamp.Sub(event.timestamp)
+			if gap > 500*time.Millisecond {
+				// Decode current character
+				decoded := decodeMorseChar(currentChar.String())
+				result.WriteString(decoded)
+				currentChar.Reset()
+			}
+		}
+	}
+
+	// Decode final character
+	if currentChar.Len() > 0 {
+		decoded := decodeMorseChar(currentChar.String())
+		result.WriteString(decoded)
+	}
+
+	return result.String()
+}
+
+// decodeMorseChar converts a morse pattern to a character
+func decodeMorseChar(morse string) string {
+	for char, code := range morseCode {
+		if code == morse {
+			return string(char)
+		}
+	}
+	return "?"
+}
+
+// NotificationSound represents different notification sound types
+type NotificationSound int
+
+const (
+	SoundNone NotificationSound = iota
+	SoundCritical
+	SoundAlert
+	SoundAchievement
+	SoundNetwork
+	SoundMorse
+)
+
+// playNotificationSound plays the appropriate sound for a notification
+func (ui *uiConfig) playNotificationSound(sound NotificationSound, petName string) {
+	if !ui.soundEnabled {
+		return
+	}
+
+	switch sound {
+	case SoundCritical:
+		ui.bellForEvent("critical")
+	case SoundAlert:
+		ui.bellForEvent("alert")
+	case SoundAchievement:
+		ui.bellForEvent("achievement")
+	case SoundNetwork:
+		ui.bellForEvent("network")
+		// Maybe play hidden morse during network events
+		if petNetwork != nil {
+			ui.maybeMorseMessage()
+		}
+	case SoundMorse:
+		// Play pet name in morse as an easter egg
+		go func() {
+			morseEncoded := encodeToMorse(petName)
+			ui.playMorseChar(morseEncoded)
+		}()
+	}
+}
+
+// shouldAlertForStat checks if a stat level should trigger an audio alert
+func shouldAlertForStat(statName string, value int) bool {
+	thresholds := map[string]int{
+		"hunger":      75, // Alert when hunger is high
+		"happiness":   20, // Alert when happiness is low
+		"health":      30, // Alert when health is low
+		"cleanliness": 20, // Alert when cleanliness is low
+	}
+
+	threshold, exists := thresholds[statName]
+	if !exists {
+		return false
+	}
+
+	switch statName {
+	case "hunger":
+		return value >= threshold
+	default:
+		return value <= threshold
+	}
+}
+
+// checkAndPlayAlerts checks pet stats and plays appropriate alerts
+func (ui *uiConfig) checkAndPlayAlerts(pet *Pet) {
+	if !ui.soundEnabled {
+		return
+	}
+
+	// Critical: pet is dying
+	if pet.Health <= 10 || pet.Stage == Dead {
+		ui.playNotificationSound(SoundCritical, pet.Name)
+		return
+	}
+
+	// Sick alert
+	if pet.IsSick {
+		ui.playNotificationSound(SoundAlert, pet.Name)
+		return
+	}
+
+	// Stat-based alerts (rate limited via bellForEvent)
+	if shouldAlertForStat("hunger", pet.Hunger) {
+		ui.bellForEvent("alert")
+	} else if shouldAlertForStat("health", pet.Health) {
+		ui.bellForEvent("alert")
+	} else if shouldAlertForStat("happiness", pet.Happiness) {
+		ui.bellForEvent("alert")
+	} else if shouldAlertForStat("cleanliness", pet.Cleanliness) {
+		ui.bellForEvent("alert")
 	}
 }

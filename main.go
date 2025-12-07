@@ -197,6 +197,8 @@ func displayPet(pet *Pet, ui *uiConfig) {
 	clearScreen()
 	maybeShake(pet, ui)
 	fmt.Print(renderScene(pet, ui))
+	// Check and play audio alerts for critical states
+	ui.checkAndPlayAlerts(pet)
 }
 
 // promptForName asks the user to name their new pet
